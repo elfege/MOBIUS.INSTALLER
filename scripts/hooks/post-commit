@@ -1,0 +1,39 @@
+#!/bin/bash
+# ─────────────────────────────────────────────────────────────────────
+# post-commit hook — auto-version + push to origin (when on main)
+#
+# Triggers after every `git commit`. If we're on main, bumps ./.tag
+# via scripts/_auto_version.sh and pushes main + the new tag to origin.
+#
+# This is a SINGLE-PUBLIC repo (no public-mirror dance), so the only
+# remote is `origin` and the push is direct (no filter-repo). The
+# pre-push hook is the forward-defense backstop against private content.
+#
+# Self-preservation: auto-copies itself back to scripts/hooks/ if changed.
+# ─────────────────────────────────────────────────────────────────────
+
+HOOK_DIR="$(git rev-parse --show-toplevel)/.git/hooks"
+SCRIPT_DIR="$(git rev-parse --show-toplevel)/scripts/hooks"
+HOOK_NAME="post-commit"
+
+if [ -d "$SCRIPT_DIR" ]; then
+    if ! cmp -s "$HOOK_DIR/$HOOK_NAME" "$SCRIPT_DIR/$HOOK_NAME" 2>/dev/null; then
+        cp "$HOOK_DIR/$HOOK_NAME" "$SCRIPT_DIR/$HOOK_NAME"
+        chmod +x "$SCRIPT_DIR/$HOOK_NAME"
+    fi
+fi
+
+branch=$(git rev-parse --abbrev-ref HEAD)
+
+if [ "$branch" = "main" ]; then
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+    if [ -x "$REPO_ROOT/scripts/_auto_version.sh" ]; then
+        "$REPO_ROOT/scripts/_auto_version.sh" || true
+    fi
+    new_tag="$(git tag --points-at HEAD 'v*.*.*' | sort -V | tail -1)"
+
+    (
+        git push origin main
+        [ -n "$new_tag" ] && git push origin "$new_tag"
+    ) &>/dev/null &
+fi

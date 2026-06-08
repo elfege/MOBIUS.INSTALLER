@@ -1,0 +1,39 @@
+#!/bin/bash
+# ─────────────────────────────────────────────────────────────────────
+# post-merge hook — auto-version + push to origin (when on main)
+#
+# Triggers after any `git merge` completes. If we're on main, bumps
+# ./.tag via scripts/_auto_version.sh and pushes main + the new tag.
+#
+# Single-public repo: no public-mirror; `origin` IS the public repo.
+# The pre-push hook is the forward-defense against private content.
+# ─────────────────────────────────────────────────────────────────────
+
+HOOK_DIR="$(git rev-parse --show-toplevel)/.git/hooks"
+SCRIPT_DIR="$(git rev-parse --show-toplevel)/scripts/hooks"
+HOOK_NAME="post-merge"
+
+if [ -d "$SCRIPT_DIR" ]; then
+    if ! cmp -s "$HOOK_DIR/$HOOK_NAME" "$SCRIPT_DIR/$HOOK_NAME" 2>/dev/null; then
+        cp "$HOOK_DIR/$HOOK_NAME" "$SCRIPT_DIR/$HOOK_NAME"
+        chmod +x "$SCRIPT_DIR/$HOOK_NAME"
+        echo "[post-merge] Hook updated in scripts/hooks/ (will be tracked on next commit)."
+    fi
+fi
+
+branch=$(git rev-parse --abbrev-ref HEAD)
+
+if [ "$branch" = "main" ]; then
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+    if [ -x "$REPO_ROOT/scripts/_auto_version.sh" ]; then
+        "$REPO_ROOT/scripts/_auto_version.sh" || true
+    fi
+    new_tag="$(git tag --points-at HEAD 'v*.*.*' | sort -V | tail -1)"
+
+    echo "[post-merge] On main — pushing main + tag $new_tag to origin..."
+    (
+        git push origin main
+        [ -n "$new_tag" ] && git push origin "$new_tag"
+    ) &>/dev/null &
+    echo "[post-merge] Push initiated (background)."
+fi

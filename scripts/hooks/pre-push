@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# ----------------------------------------------------------------------------
+# pre-push hook — block operator-private paths from reaching the public repo.
+#
+# MOBIUS.INSTALLER is a single-public repo from commit 1. There is no private
+# dev mirror; `origin` IS the public repo. This hook is the forward defense
+# against accidentally tracking operator-private content (handoffs, plans,
+# teachings, hostnames, AWS secret names baked into manifests, etc.).
+#
+# Mechanism: refuses any push whose commit range INTRODUCES or MODIFIES a path
+# in PRIVATE_PATHS. Deletions are allowed (cleanup pushes pass). The matcher
+# is diff-based (not full-tree) so the moment a private path is ever scrubbed
+# from history, subsequent pushes that no longer touch it succeed.
+#
+# Install: ./scripts/hooks/install-hooks.sh
+# Bypass:  git push --no-verify (NOT recommended)
+# ----------------------------------------------------------------------------
+set -euo pipefail
+
+PRIVATE_PATHS=(
+    "CLAUDE.md"
+    "COMPONENT_CATALOG.md"
+    "docs"
+    "DOCS"
+    "chat.md"
+    "claude_rules.md"
+    "README_handoff.md"
+    "README_project_history.md"
+)
+# Note: COMPONENT_CATALOG.md is the OPERATOR'S internal source-of-truth (carries
+# LAN IPs, AWS secret name literals, hostnames). The PUBLIC manifests under
+# components/<id>.yaml are the scrubbed equivalent. The catalog stays local
+# (gitignored on the operator's machine, refused here as belt-and-braces).
+
+violations=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+    [[ "$local_sha" == "0000000000000000000000000000000000000000" ]] && continue  # deleting branch
+
+    if [[ "$remote_sha" == "0000000000000000000000000000000000000000" ]]; then
+        # New ref (first push of a branch / new tag): inspect commits reachable
+        # from local_sha that aren't already on any remote-tracking branch.
+        rev_args=("$local_sha" --not --remotes)
+    else
+        rev_args=("${remote_sha}..${local_sha}")
+    fi
+
+    for path in "${PRIVATE_PATHS[@]}"; do
+        # --diff-filter=ACMR catches Add/Copy/Modify/Rename-target; allows
+        # Deletion (D) so leak-cleanup commits pass.
+        if git rev-list "${rev_args[@]}" 2>/dev/null | while read -r sha; do
+            if git diff-tree --no-commit-id --diff-filter=ACMR --name-only -r "$sha" 2>/dev/null \
+                | awk -v p="$path" '$0==p || index($0, p"/")==1 {f=1} END{exit !f}'; then
+                echo "$sha"
+                break
+            fi
+        done | grep -q .; then
+            echo "❌ REFUSING PUSH: '$path' introduced/modified in commit range ${rev_args[*]} (-> $remote_ref)" >&2
+            violations=$((violations + 1))
+        fi
+    done
+
+    # Belt-and-braces: refuse pushes whose new commits contain any real LAN IP
+    # (192.168.10.x) in tracked content. This catches operator-private addresses
+    # that slip past the path-name filter (e.g. embedded in a YAML comment).
+    if git rev-list "${rev_args[@]}" 2>/dev/null | while read -r sha; do
+        if git show --no-color --no-patch=false "$sha" 2>/dev/null \
+            | grep -qE '192\.168\.10\.[0-9]+'; then
+            echo "$sha"
+            break
+        fi
+    done | grep -q .; then
+        echo "❌ REFUSING PUSH: LAN IP (192.168.10.x) found in pushed commits — scrub or rewrite first" >&2
+        violations=$((violations + 1))
+    fi
+done
+
+if [[ $violations -gt 0 ]]; then
+    cat >&2 <<EOF
+
+This hook refuses to push commits introducing operator-private content into the
+public MOBIUS.INSTALLER repo. Flagged path patterns:
+$(printf "  - %s\n" "${PRIVATE_PATHS[@]}")
+Plus: real LAN IPs (192.168.10.x).
+
+If you NEED to add one of these, edit scripts/hooks/pre-push to remove it from
+the PRIVATE_PATHS array — but think hard first. This is a PUBLIC repo.
+
+Emergency bypass (NOT recommended):  git push --no-verify ...
+EOF
+    exit 1
+fi
+
+exit 0

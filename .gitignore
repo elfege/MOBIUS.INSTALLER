@@ -1,0 +1,44 @@
+# ─── MOBIUS.INSTALLER .gitignore ─────────────────────────────────────────────
+# This repo is PUBLIC from commit 1. Anything matching these patterns must
+# never be tracked. The pre-push hook in scripts/hooks/pre-push is the
+# forward-defense backstop; this gitignore is the first layer.
+
+# Operator-private content (never goes public)
+CLAUDE.md
+docs/
+DOCS/
+COMPONENT_CATALOG.md
+chat.md
+claude_rules.md
+*.handoff.md
+README_handoff.md
+README_project_history.md
+
+# Per-host / per-operator runtime state
+.tag.local
+.env
+.env.*
+*.bak
+*.bak.*
+*.swp
+*~
+.DS_Store
+
+# Credentials of any kind — never tracked
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.sqlite
+*.db
+credentials.json
+
+# Build / install artifacts
+__MOBIUS.INSTALL/
+build/
+dist/
+*.log
+
+# Editor temp dotfiles (the .foo.md.HkLp1w pattern that bit TILES)
+.[A-Za-z_]*.[A-Za-z0-9_]*.[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]*
