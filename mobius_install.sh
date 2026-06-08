@@ -270,11 +270,13 @@ mobius_install__print_plan() {
         echo "       repo:   ${MANIFEST_PUBLIC_REPO}"
         echo "       target: ${MOBIUS_INSTALL__INSTALL_ROOT}/${id}"
         echo "       deploy: ${MANIFEST_DEPLOY_ENTRY}"
-        [[ ${#MANIFEST_PORTS[@]:-0} -gt 0 ]] && echo "       ports:  ${MANIFEST_PORTS[*]}"
-        [[ ${#MANIFEST_AWS_SECRET_ENV_VARS[@]:-0} -gt 0 ]] \
+        [[ ${#MANIFEST_PORTS[@]} -gt 0 ]] && echo "       ports:  ${MANIFEST_PORTS[*]}"
+        [[ ${#MANIFEST_AWS_SECRET_ENV_VARS[@]} -gt 0 ]] \
             && echo "       AWS env vars (if AWS mode): ${MANIFEST_AWS_SECRET_ENV_VARS[*]}"
-        [[ -n "${MANIFEST_NOTES:-}" ]] \
-            && echo "${MANIFEST_NOTES}" | sed 's/^/       NOTE: /'
+        if [[ ${#MANIFEST_NOTES[@]} -gt 0 ]]; then
+            local _note
+            for _note in "${MANIFEST_NOTES[@]}"; do echo "       NOTE: $_note"; done
+        fi
         echo ""
     done
 }
@@ -377,7 +379,7 @@ mobius_install__health_check_one() {
 
 mobius_install__health_checks() {
     local id="$1"
-    [[ ${#MANIFEST_HEALTH_CHECKS[@]:-0} -eq 0 ]] && return 0
+    [[ ${#MANIFEST_HEALTH_CHECKS[@]} -eq 0 ]] && return 0
     mobius_log__step "${id}: health checks"
     local h fails=0
     for h in "${MANIFEST_HEALTH_CHECKS[@]}"; do

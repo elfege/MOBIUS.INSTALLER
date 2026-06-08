@@ -1,0 +1,51 @@
+# MOBIUS.INSTALLER component manifest — NVR
+# Bash-sourcable; loaded by lib/manifest.sh. ONLY variable assignments allowed.
+
+MANIFEST_ID="NVR"
+MANIFEST_DISPLAY_NAME="MOBIUS NVR — multi-camera network video recorder"
+MANIFEST_PUBLIC_REPO="https://github.com/elfege/MOBIUS.NVR.git"
+MANIFEST_TARGET_DIR="${MOBIUS_INSTALL_ROOT:-${HOME}/__MOBIUS.INSTALL}/NVR"
+MANIFEST_DEPLOY_ENTRY="./deploy.sh"
+
+MANIFEST_REQUIRES=()
+MANIFEST_OPTIONAL=("ANAMNESIS")
+
+MANIFEST_PORTS=(
+    "8081:80:edge HTTP (nvr-edge)"
+    "8444:443:edge HTTPS (nvr-edge)"
+    "5000:5000:Flask app (loopback-bound on host)"
+    "32100/udp:32100:Eufy P2P"
+    "32108/udp:32108:Eufy P2P"
+    "8888:8888:MediaMTX HLS/LL-HLS"
+    "8889:8889:MediaMTX WHEP signaling"
+    "8189/udp:8189:MediaMTX WebRTC media"
+    "1984:1984:go2rtc UI/API"
+    "8555:8555:go2rtc RTSP"
+    "8557:8557:go2rtc WebRTC"
+    "8554:8554:neolink RTSP"
+    "5432:5432:postgres (loopback-bound on host)"
+    "3001:3001:postgrest REST"
+)
+
+MANIFEST_AWS_SECRET_ENV_VARS=("NVR_AWS_SECRET_NAMES")
+
+MANIFEST_HOST_PREREQS=(
+    "docker"
+    "docker-compose-v2"
+    "git"
+    "curl"
+)
+
+MANIFEST_HEALTH_CHECKS=(
+    "http http://127.0.0.1:5000/health 200 60"
+    "cmd docker exec nvr-postgres pg_isready -U nvr_api -d nvr 0"
+)
+
+MANIFEST_NOTES=(
+    "Configure storage mounts BEFORE running install: set NVR_RECORDINGS_RECENT and NVR_RECORDINGS_LONG_TERM in the project .env to disks with enough free space for the planned retention window."
+    "Camera credentials are stored AES-256-GCM-encrypted in the camera_credentials DB table; first run prompts for them or reads from your AWS secret."
+    "Eufy P2P: cameras must be allowed to reach the Eufy cloud (LAN->WAN) for PTZ and talkback. UDP hole-punching to dynamic AWS endpoints; an FQDN-only firewall allow is insufficient."
+    "go2rtc and MediaMTX run from upstream Docker images at :latest tag (not version-pinned). The installer pulls whatever is current."
+    "neolink runs from upstream image quantumentangledandy/neolink:v0.6.2 (pinned)."
+    "All compose containers bind to 0.0.0.0 by default except Flask (loopback-only, via nginx). Adjust your firewall accordingly."
+)

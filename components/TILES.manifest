@@ -1,0 +1,41 @@
+# MOBIUS.INSTALLER component manifest — TILES
+# Bash-sourcable; loaded by lib/manifest.sh. ONLY variable assignments allowed.
+
+MANIFEST_ID="TILES"
+MANIFEST_DISPLAY_NAME="MOBIUS TILES — Hubitat smart-home web dashboard"
+MANIFEST_PUBLIC_REPO="https://github.com/elfege/MOBIUS.TILES.git"
+MANIFEST_TARGET_DIR="${MOBIUS_INSTALL_ROOT:-${HOME}/__MOBIUS.INSTALL}/TILES"
+MANIFEST_DEPLOY_ENTRY="./deploy.sh"
+
+MANIFEST_REQUIRES=()
+MANIFEST_OPTIONAL=("NVR" "ANAMNESIS")
+
+MANIFEST_PORTS=(
+    "3004:5000:Flask app"
+    "5002:5432:postgres"
+    "5435:3001:postgrest REST"
+    "8084:80:nginx HTTP"
+    "8447:443:nginx HTTPS"
+)
+
+MANIFEST_AWS_SECRET_ENV_VARS=("TILES_AWS_SECRET_NAMES")
+
+MANIFEST_HOST_PREREQS=(
+    "docker"
+    "docker-compose-v2"
+    "git"
+    "curl"
+    "systemd"
+)
+
+MANIFEST_HEALTH_CHECKS=(
+    "http http://127.0.0.1:3004/api/status 200 60"
+)
+
+MANIFEST_NOTES=(
+    "TILES connects DIRECTLY to your Hubitat hub(s) — no SMART_HOME dependency. You must provide a Hubitat admin-API token in your env / AWS secret before install (TILES_HUBITAT_TOKEN_*)."
+    "A 'webhook-dispatcher' container is shared with SMART_HOME if both are installed; whichever starts first owns it. No coordination needed."
+    "Multi-hub identity is keyed by <hubIp>:<id>; a bare device id can collide across hubs. The schema handles this."
+    "A systemd unit tiles-restart-watcher.service is installed for the UI's restart button (uses /dev/shm/tiles-restart tmpfs trigger)."
+    "For embedding NVR camera tiles, set the NVR external-API URL + bearer token via the TILES UI after install (runtime config, not install-time)."
+)

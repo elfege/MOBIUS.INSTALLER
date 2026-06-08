@@ -36,7 +36,7 @@
 #   MANIFEST_HOST_PREREQS       (arr)   "docker" | "docker-compose-v2" | "mount:/path"
 #   MANIFEST_HEALTH_CHECKS      (arr)   "http URL EXPECT_STATUS TIMEOUT" |
 #                                         "cmd <shell-cmd> EXPECT_EXIT"
-#   MANIFEST_NOTES              (str)   free-form notes for the operator
+#   MANIFEST_NOTES              (arr)   free-form notes lines (joined on display)
 # ─────────────────────────────────────────────────────────────────────
 
 [[ -n "${_MOBIUS_MANIFEST_SOURCED:-}" ]] && return 0 2>/dev/null
@@ -66,6 +66,7 @@ _mobius_manifest__reset() {
     MANIFEST_AWS_SECRET_ENV_VARS=()
     MANIFEST_HOST_PREREQS=()
     MANIFEST_HEALTH_CHECKS=()
+    MANIFEST_NOTES=()
 }
 
 _mobius_manifest__lint() {
@@ -141,5 +142,9 @@ mobius_manifest__describe() {
     echo "  health checks:"
     local h
     for h in "${MANIFEST_HEALTH_CHECKS[@]:-}"; do [[ -n "$h" ]] && echo "    - $h"; done
-    [[ -n "${MANIFEST_NOTES:-}" ]] && { echo "  notes:"; echo "${MANIFEST_NOTES}" | sed 's/^/    /'; }
+    if [[ ${#MANIFEST_NOTES[@]} -gt 0 ]]; then
+        echo "  notes:"
+        local _n
+        for _n in "${MANIFEST_NOTES[@]}"; do echo "    - $_n"; done
+    fi
 }

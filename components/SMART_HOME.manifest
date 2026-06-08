@@ -1,0 +1,45 @@
+# MOBIUS.INSTALLER component manifest — SMART_HOME
+# Bash-sourcable; loaded by lib/manifest.sh. ONLY variable assignments allowed.
+
+MANIFEST_ID="SMART_HOME"
+MANIFEST_DISPLAY_NAME="MOBIUS SMART_HOME — Hubitat automation engine + Matter server"
+MANIFEST_PUBLIC_REPO="https://github.com/elfege/MOBIUS.SMART_HOME.git"
+MANIFEST_TARGET_DIR="${MOBIUS_INSTALL_ROOT:-${HOME}/__MOBIUS.INSTALL}/SMART_HOME"
+MANIFEST_DEPLOY_ENTRY="./deploy.sh"
+
+MANIFEST_REQUIRES=()
+MANIFEST_OPTIONAL=("ANAMNESIS")
+
+MANIFEST_PORTS=(
+    "5001:5000:FastAPI app"
+    "5433:5432:postgres"
+    "3002:3001:postgrest REST"
+    "8082:80:nginx HTTP"
+    "8445:443:nginx HTTPS"
+    "5050:5050:webhook-dispatcher (shared with TILES)"
+    "5580:5580:matter-server (host networking)"
+)
+
+MANIFEST_AWS_SECRET_ENV_VARS=("SMART_HOME_AWS_SECRET_NAMES")
+
+MANIFEST_HOST_PREREQS=(
+    "docker"
+    "docker-compose-v2"
+    "git"
+    "curl"
+    "host_networking"
+    "privileged_container_support"
+)
+
+MANIFEST_HEALTH_CHECKS=(
+    "http http://127.0.0.1:5001/api/health 200 60"
+)
+
+MANIFEST_NOTES=(
+    "Hubitat config: SMART_HOME needs your hub IP(s) + admin-API token(s) before install. Provide via AWS secret (SMART_HOME_AWS_SECRET_NAMES) or .env-only."
+    "The matter-server container runs with host networking + privileged + /run/dbus mounted (mDNS device discovery requires this). On restricted hosts you can skip Matter by exporting SMART_HOME_DISABLE_MATTER=true before install."
+    "nginx requires TLS certs at ./nginx/certs/{fullchain.pem,privkey.pem}. Self-signed is fine on LAN. The installer does NOT provision certs — bring your own."
+    "The webhook-dispatcher container is SHARED with TILES; only one runs across both projects. Whichever starts first owns it; the other skips creation."
+    "An external docker network 'smarthome_smarthome-net' is created if missing by start.sh. If TILES is also installed, start.sh attaches webhook-dispatcher to tiles_tiles-net too (skipped silently if absent)."
+    "An external docker volume '0_smart_home_postgres_data' is used for postgres. Pre-create it if you want it on a specific filesystem; otherwise the install uses Docker's default volume location."
+)
